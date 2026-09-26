@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main, "cursor/**"]
+    branches: [main, "cursor/**", "feat/**"]
   pull_request:
     branches: [main]
 
@@ -42,3 +42,23 @@ jobs:
         run: go vet ./...
       - name: test
         run: go test -race -count=1 ./...
+
+  ruby:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients/ruby
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: false
+      - name: ruby client tests
+        run: |
+          set -euo pipefail
+          ruby -v
+          ruby -Ilib:test test/client_test.rb | tee ruby_test.out
+          echo "---"
+          # Count assertions/tests from minitest summary line
+          grep -E 'runs,+|assertions' ruby_test.out || true

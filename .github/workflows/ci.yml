@@ -57,8 +57,19 @@ jobs:
       - name: ruby client tests
         run: |
           set -euo pipefail
-          ruby -v
-          ruby -Ilib:test test/client_test.rb | tee ruby_test.out
-          echo "---"
-          # Count assertions/tests from minitest summary line
-          grep -E 'runs,+|assertions' ruby_test.out || true
+          {
+            echo "hardware: GitHub Actions $(uname -s) $(uname -m)"
+            echo "os: $(. /etc/os-release; echo "$PRETTY_NAME")"
+            echo "cpu: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
+            echo "cores: $(nproc)"
+            echo "ram_kb: $(awk '/MemTotal/ {print $2}' /proc/meminfo)"
+            echo "ruby: $(ruby -v)"
+            echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "commit: $(git rev-parse HEAD)"
+            echo "command: ruby -Ilib:test test/client_test.rb"
+            ruby -Ilib:test test/client_test.rb
+          } | tee ruby_test.out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ruby-test-out
+          path: clients/ruby/ruby_test.out

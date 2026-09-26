@@ -82,11 +82,13 @@ All figures below are copied from a real run recorded in [`bench/RESULTS.md`](be
 
 | Metric | Value | Source |
 | --- | --- | --- |
-| Property sequences | see RESULTS.md | `TestPropertyPaymentSequences` |
-| Fault runs passed | see RESULTS.md | `TestFaultInjectionAfterCommitBeforeResponse` |
-| Confirm+capture throughput | see RESULTS.md | `cmd/loadgen` |
-| Latency p50 / p95 / p99 | see RESULTS.md | `cmd/loadgen` |
-| Idempotent-replay latency | see RESULTS.md | `cmd/loadgen` |
+| Property sequences | **200** | `TestPropertyPaymentSequences` |
+| Fault runs passed | **1000/1000** | `TestFaultInjectionAfterCommitBeforeResponse` |
+| Confirm+capture throughput | **190.56 /s** | `cmd/loadgen -c 32 -n 500` |
+| Latency p50 / p95 / p99 | **163.28 / 181.12 / 206.27 ms** | same loadgen run |
+| Idempotent-replay latency p50 / p95 / p99 | **0.54 / 0.58 / 0.59 ms** | loadgen `-replay 200` |
+
+Hardware for that run: GitHub Actions `ubuntu-latest`, AMD EPYC 9V74 (4 cores allocated), 16373452 kB RAM, date `2026-09-26T14:14:26Z`, checkout SHA `050a8a184ec1dee50b61ba7cb8e5fe9c0640893e` (details in RESULTS.md).
 
 ```bash
 go run ./cmd/loadgen -base http://127.0.0.1:8080 -token sk_test_ledgerd -c 32 -n 500 -replay 200

@@ -15,6 +15,7 @@ import (
 // App is the payments service. HTTP is a thin wrapper around these methods.
 type App struct {
 	Pool          *pgxpool.Pool
+	ProcessorPool *pgxpool.Pool // separate pool so Authorize cannot deadlock the ledger pool
 	TTL           time.Duration
 	ProcessorSeed int64
 
@@ -82,4 +83,11 @@ func formatTime(t time.Time) string {
 
 func newID() string {
 	return uuid.NewString()
+}
+
+func (a *App) processorPool() *pgxpool.Pool {
+	if a.ProcessorPool != nil {
+		return a.ProcessorPool
+	}
+	return a.Pool
 }

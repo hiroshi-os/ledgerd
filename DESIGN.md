@@ -69,8 +69,9 @@ Triggers reject `UPDATE`/`DELETE` on `ledger_entries`, `ledger_transactions`, an
 1. **Workspace reset mid-build** — an earlier Linux agent session wrote files under `/workspace` that were not present on the Windows checkout; the tree was rebuilt from scratch here.
 2. **Local Postgres install** — scoop/winget downloads to EnterpriseDB timed out on this machine (DNS for many hosts resolved to `192.0.2.1`). Local benches therefore run when Postgres is available via Docker Compose or a local install; measured numbers in `bench/RESULTS.md` are only from runs that actually completed.
 3. **Multi-statement migrations on pgx** — extended-protocol `Exec` rejects multi-statement SQL; migrations use the simple-query protocol via `PgConn.Exec`.
-4. **Confirm + processor connection** — early drafts ran processor authorize inside the same open ledger transaction, which deadlocked on pool checkout. Authorize now uses a separate pool checkout and commits independently.
+4. **Confirm + processor connection** — processor authorize used the same pool as the open ledger transaction. Under concurrent confirms every connection was waiting on Authorize, which needed another connection: pool deadlock. Fixed with a dedicated `ProcessorPool`.
 5. **Drop-response in unit ResponseRecorders** — `httptest.ResponseRecorder` cannot hijack; the HTTP layer panics with a dedicated message when drop is requested under a non-hijackable writer, so drop tests go through the App layer (`Result.DropResponse`) instead of the recorder.
+6. **First loadgen run on CI** — `ok=0 err=500` at concurrency 32 before the processor pool split; replay-only path still measured because it ran after the workers finished. Re-measured after the fix.
 
 ## Honesty boundaries
 

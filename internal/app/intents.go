@@ -128,7 +128,7 @@ func (a *App) ConfirmPaymentIntent(ctx context.Context, req Request, id string) 
 			return Result{}, invalid("invalid_state", "payment intent cannot be confirmed from status "+status)
 		}
 
-		charge, err := processor.Authorize(ctx, a.Pool, a.ProcessorSeed, piUUID, row.script)
+		charge, err := processor.Authorize(ctx, a.processorPool(), a.ProcessorSeed, piUUID, row.script)
 		if err != nil {
 			return Result{}, err
 		}

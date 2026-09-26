@@ -52,12 +52,23 @@ func Pool(t *testing.T) *pgxpool.Pool {
 func NewApp(t *testing.T) *app.App {
 	t.Helper()
 	p := Pool(t)
+	ctx := context.Background()
+	procCfg, err := pgxpool.ParseConfig(DatabaseURL())
+	if err != nil {
+		t.Fatalf("proc config: %v", err)
+	}
+	procCfg.MaxConns = 4
+	procPool, err := pgxpool.NewWithConfig(ctx, procCfg)
+	if err != nil {
+		t.Fatalf("proc pool: %v", err)
+	}
+	t.Cleanup(func() { procPool.Close() })
 	a := &app.App{
 		Pool:          p,
+		ProcessorPool: procPool,
 		TTL:           24 * time.Hour,
 		ProcessorSeed: 1,
 	}
-	ctx := context.Background()
 	if err := a.Reset(ctx, BootstrapKey, "test"); err != nil {
 		t.Fatalf("reset: %v", err)
 	}

@@ -48,7 +48,7 @@ jobs:
             echo "## Loadgen"
             go build -o ledgerd ./cmd/ledgerd
             go build -o loadgen ./cmd/loadgen
-            ./ledgerd &
+            ./ledgerd >ledgerd.log 2>&1 &
             echo $! > ledgerd.pid
             for i in $(seq 1 60); do
               if curl -sf http://127.0.0.1:8080/healthz; then break; fi
@@ -56,8 +56,11 @@ jobs:
             done
             echo
             echo "command: ./loadgen -base http://127.0.0.1:8080 -token sk_test_ledgerd -c 32 -n 500 -replay 200"
-            ./loadgen -base http://127.0.0.1:8080 -token sk_test_ledgerd -c 32 -n 500 -replay 200
+            ./loadgen -base http://127.0.0.1:8080 -token sk_test_ledgerd -c 32 -n 500 -replay 200 2>&1
             kill "$(cat ledgerd.pid)" || true
+            echo
+            echo "## Server log (tail)"
+            tail -n 50 ledgerd.log || true
           } | tee measure.out
       - uses: actions/upload-artifact@v4
         with:

@@ -29,12 +29,24 @@ func main() {
 	}
 	defer pool.Close()
 
+	procCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	procCfg.MaxConns = 8
+	procPool, err := pgxpool.NewWithConfig(ctx, procCfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer procPool.Close()
+
 	if err := migrate.Up(ctx, pool); err != nil {
 		log.Fatal(err)
 	}
 
 	a := &app.App{
 		Pool:          pool,
+		ProcessorPool: procPool,
 		TTL:           cfg.IdempotencyTTL,
 		ProcessorSeed: cfg.ProcessorSeed,
 	}

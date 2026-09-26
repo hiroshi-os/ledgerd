@@ -67,6 +67,8 @@ ruby -Ilib:test test/client_test.rb
 
 Tests spin up an in-process stdlib TCP fake HTTP server (no webrick / Rack gems).
 
+Measured on CI (see root [`bench/RESULTS.md`](../../bench/RESULTS.md)): **10** runs, **88** assertions, **0** failures (Ruby 3.2.11, Ubuntu 24.04.5, Intel Xeon Platinum 8370C, 4 cores, 16372440 kB RAM, `2026-09-26T14:44:38Z`).
+
 Optional live server:
 
 ```bash

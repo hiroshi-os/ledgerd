@@ -40,3 +40,32 @@ go build -o loadgen ./cmd/loadgen
 ### Notes
 
 - An earlier measure run on the same day (`36247093067`) recorded loadgen `ok=0 err=500` because concurrent confirms deadlocked the shared pgx pool while calling the simulated processor. That was fixed with a dedicated `ProcessorPool`; this section is the post-fix run only.
+
+## Run 2026-09-26 (Ruby client CI)
+
+- hardware: GitHub Actions Linux x86_64, OS **Ubuntu 24.04.5 LTS**, CPU **Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz**, **4** cores, **16372440** kB RAM
+- ruby: **ruby 3.2.11 (2026-03-27 revision 5483bfc1ae) [x86_64-linux]**
+- date_utc: `2026-09-26T14:44:38Z`
+- commit (Actions checkout `git rev-parse HEAD`): `06bd5ecfad2f8617fe1c9f17e41d085abb69609a`
+- workflow head SHA (branch tip): `c37cb437bebd263cc57ee8c5303a6255ad9dad86`
+- workflow run: https://github.com/hiroshi-os/ledgerd/actions/runs/36249531920
+- artifact: `ruby-test-out` (id `10907664579`)
+
+command:
+
+```bash
+cd clients/ruby && ruby -Ilib:test test/client_test.rb
+```
+
+- **10** runs, **88** assertions, **0** failures, **0** errors, **0** skips
+- Finished in **0.025611s**
+
+### Retry matrix (covered by those tests)
+
+| Condition | Retried? | Covered |
+| --- | --- | --- |
+| Network error | yes | (unit via connection error path; not separately counted above) |
+| 409 / 429 / 5xx | yes, up to max_retries | yes |
+| 400 / 401 / 404 / 422 | no (exactly one request) | yes |
+| Idempotency-Key reused on retries | yes | yes |
+| Retry-After honoured | yes | yes |

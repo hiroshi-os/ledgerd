@@ -1,0 +1,16 @@
+/bin/
+*.exe
+*.test
+*.out
+/coverage/
+/tmp/
+.idea/
+.vscode/
+/tools/
+
+cred_raw.txt
+fix.txt
+pr_http.txt
+pr_resp.json
+*.zip
+

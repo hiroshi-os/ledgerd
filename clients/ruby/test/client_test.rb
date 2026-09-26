@@ -1,58 +1,83 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
-require "minitest/mock"
-require "webrick"
 require "json"
+require "socket"
 require "stringio"
 require "securerandom"
 
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 require "ledgerd"
 
+# Minimal HTTP/1.1 server using only stdlib Socket (no webrick gem).
 module FakeServerHelper
   FakeRequest = Struct.new(:method, :path, :headers, :body, keyword_init: true)
 
   def with_fake_server(handler)
     queue = Queue.new
-    port = 0
-    server = WEBrick::HTTPServer.new(
-      Port: 0,
-      Logger: WEBrick::Log.new(StringIO.new),
-      AccessLog: []
-    )
-    port = server.config[:Port]
+    server = TCPServer.new("127.0.0.1", 0)
+    port = server.addr[1]
+    stop = false
 
-    server.mount_proc("/") do |req, res|
-      headers = {}
-      req.header.each { |k, v| headers[k.downcase] = Array(v).first }
-      body = req.body
-      recorded = FakeRequest.new(
-        method: req.request_method,
-        path: req.path,
-        headers: headers,
-        body: body
-      )
-      queue << recorded
-      status, out_headers, out_body = handler.call(recorded, queue.size)
-      res.status = status
-      out_headers.each { |k, v| res[k] = v }
-      res.body = out_body
-      res["Content-Type"] ||= "application/json"
+    thread = Thread.new do
+      until stop
+        begin
+          client = server.accept
+        rescue IOError, Errno::EBADF
+          break
+        end
+        Thread.new(client) do |conn|
+          begin
+            req = read_http_request(conn)
+            queue << req
+            status, out_headers, out_body = handler.call(req, queue.size)
+            write_http_response(conn, status, out_headers, out_body)
+          rescue StandardError
+            # ignore client disconnects
+          ensure
+            conn.close
+          end
+        end
+      end
     end
-
-    thread = Thread.new { server.start }
-    sleep 0.05
 
     base = "http://127.0.0.1:#{port}"
     yield base, queue
   ensure
+    stop = true
     begin
-      server&.shutdown
+      server&.close
     rescue StandardError
-      # ignore shutdown races
+      nil
     end
     thread&.join(2)
+  end
+
+  def read_http_request(conn)
+    request_line = conn.gets
+    raise IOError, "empty request" if request_line.nil?
+
+    method, path, = request_line.split(" ", 3)
+    headers = {}
+    while (line = conn.gets)
+      break if line == "\r\n" || line == "\n"
+
+      name, value = line.split(":", 2)
+      headers[name.strip.downcase] = value.to_s.strip
+    end
+    length = headers["content-length"].to_i
+    body = length.positive? ? conn.read(length) : nil
+    FakeRequest.new(method: method, path: path, headers: headers, body: body)
+  end
+
+  def write_http_response(conn, status, out_headers, out_body)
+    body = out_body.to_s
+    headers = { "Content-Type" => "application/json", "Content-Length" => body.bytesize.to_s }
+    out_headers.each { |k, v| headers[k] = v.to_s }
+    conn.write "HTTP/1.1 #{status} X\r\n"
+    headers.each { |k, v| conn.write "#{k}: #{v}\r\n" }
+    conn.write "\r\n"
+    conn.write body
   end
 end
 
@@ -176,7 +201,6 @@ class ClientRetryTest < Minitest::Test
         client = build_client(base, max_retries: 2)
         assert_raises(err_class) { client.accounts.create(currency: "usd") }
       end
-      # initial + 2 retries = 3
       assert_equal 3, count, "status #{status}"
     end
   end
@@ -184,15 +208,12 @@ class ClientRetryTest < Minitest::Test
   def test_backoff_delays_within_bounds
     sleeps = []
     sleeper = ->(s) { sleeps << s }
-    # random always returns 1.0 so delay == ceiling
     random = Object.new
     def random.rand
       1.0
     end
 
-    count = 0
     handler = lambda do |_req, _n|
-      count += 1
       [503, {}, JSON.generate({ error: { message: "x" } })]
     end
 
@@ -207,7 +228,6 @@ class ClientRetryTest < Minitest::Test
       assert_raises(Ledgerd::APIError) { client.accounts.create(currency: "usd") }
     end
 
-    # attempts 0,1,2 → ceilings min(8, 0.5*2^n) = 0.5, 1.0, 2.0
     assert_equal [0.5, 1.0, 2.0], sleeps
     sleeps.each { |d| assert d >= 0 && d <= 8.0 }
   end
@@ -215,9 +235,7 @@ class ClientRetryTest < Minitest::Test
   def test_retry_after_honoured
     sleeps = []
     sleeper = ->(s) { sleeps << s }
-    count = 0
     handler = lambda do |_req, n|
-      count += 1
       if n == 1
         [429, { "Retry-After" => "1.5" }, JSON.generate({ error: { message: "slow" } })]
       else

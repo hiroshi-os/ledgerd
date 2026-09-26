@@ -65,6 +65,8 @@ cd clients/ruby
 ruby -Ilib:test test/client_test.rb
 ```
 
+Tests spin up an in-process stdlib TCP fake HTTP server (no webrick / Rack gems).
+
 Optional live server:
 
 ```bash
@@ -80,6 +82,7 @@ LEDGERD_INTEGRATION=1 LEDGERD_API_KEY=sk_test_ledgerd \
 - Does not implement the full ledgerd surface (ledger transaction list/get omitted).
 - No connection pooling beyond `Net::HTTP` per request.
 - WEBrick-backed unit tests are not a substitute for production traffic.
+- Fake-server tests use a tiny stdlib `TCPServer` (no webrick gem) and are not a load test.
 
 ## DRAFT resume bullets
 

@@ -7,3 +7,10 @@
 .idea/
 .vscode/
 /tools/
+
+cred_raw.txt
+fix.txt
+pr_http.txt
+pr_resp.json
+*.zip
+

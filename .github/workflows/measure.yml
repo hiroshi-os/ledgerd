@@ -1,0 +1,65 @@
+name: measure
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ledgerd
+          POSTGRES_PASSWORD: ledgerd
+          POSTGRES_DB: ledgerd
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ledgerd -d ledgerd"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgres://ledgerd:ledgerd@localhost:5432/ledgerd?sslmode=disable
+      LEDGERD_BOOTSTRAP_API_KEY: sk_test_ledgerd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+      - name: collect measurements
+        run: |
+          set -euo pipefail
+          {
+            echo "hardware: GitHub Actions ubuntu-latest ($(uname -m))"
+            echo "cpu: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
+            echo "cores: $(nproc)"
+            echo "ram_kb: $(awk '/MemTotal/ {print $2}' /proc/meminfo)"
+            echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "commit: $(git rev-parse HEAD)"
+            echo
+            echo "## Tests"
+            echo "command: go test -race -count=1 ./..."
+            go test -race -count=1 ./... -v
+            echo
+            echo "## Loadgen"
+            go build -o ledgerd ./cmd/ledgerd
+            go build -o loadgen ./cmd/loadgen
+            ./ledgerd &
+            echo $! > ledgerd.pid
+            for i in $(seq 1 60); do
+              if curl -sf http://127.0.0.1:8080/healthz; then break; fi
+              sleep 0.5
+            done
+            echo
+            echo "command: ./loadgen -base http://127.0.0.1:8080 -token sk_test_ledgerd -c 32 -n 500 -replay 200"
+            ./loadgen -base http://127.0.0.1:8080 -token sk_test_ledgerd -c 32 -n 500 -replay 200
+            kill "$(cat ledgerd.pid)" || true
+          } | tee measure.out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: measure-out
+          path: measure.out

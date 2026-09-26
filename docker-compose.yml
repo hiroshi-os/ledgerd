@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ledgerd
+      POSTGRES_PASSWORD: ledgerd
+      POSTGRES_DB: ledgerd
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgerd -d ledgerd"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

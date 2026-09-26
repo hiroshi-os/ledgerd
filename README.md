@@ -74,7 +74,11 @@ export DATABASE_URL=postgres://ledgerd:ledgerd@localhost:5432/ledgerd_test?sslmo
 go test -race -count=1 ./...
 ```
 
-CI runs the same against a Postgres 16 service container, plus `gofmt` and `go vet`.
+CI runs the same against a Postgres 16 service container, plus `gofmt` and `go vet`, and a **Ruby 3.2** job for [`clients/ruby`](clients/ruby/README.md).
+
+## Ruby client
+
+See [`clients/ruby/README.md`](clients/ruby/README.md) for the stdlib Net::HTTP client (idempotency-key reuse on retries, not published to RubyGems).
 
 ## Measured results
 

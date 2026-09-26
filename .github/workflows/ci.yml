@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main, "cursor/**"]
+    branches: [main, "cursor/**", "feat/**"]
   pull_request:
     branches: [main]
 
@@ -42,3 +42,34 @@ jobs:
         run: go vet ./...
       - name: test
         run: go test -race -count=1 ./...
+
+  ruby:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients/ruby
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: false
+      - name: ruby client tests
+        run: |
+          set -euo pipefail
+          {
+            echo "hardware: GitHub Actions $(uname -s) $(uname -m)"
+            echo "os: $(. /etc/os-release; echo "$PRETTY_NAME")"
+            echo "cpu: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
+            echo "cores: $(nproc)"
+            echo "ram_kb: $(awk '/MemTotal/ {print $2}' /proc/meminfo)"
+            echo "ruby: $(ruby -v)"
+            echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "commit: $(git rev-parse HEAD)"
+            echo "command: ruby -Ilib:test test/client_test.rb"
+            ruby -Ilib:test test/client_test.rb
+          } | tee ruby_test.out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ruby-test-out
+          path: clients/ruby/ruby_test.out
